@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 
-const API = "http://localhost:3000/api";
+const API = "https://student-expense-tracker-backend-mus8.onrender.com/api";;
 
 function today() {
   const d = new Date();
