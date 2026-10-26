@@ -2,21 +2,36 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 
-const API =
-  "https://student-expense-tracker-backend-mus8.onrender.com/api";
+// Local Spring Boot backend
+const API = "http://localhost:8080/api";
 
 function today() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+async function readResponse(response) {
+  const text = await response.text();
+
+  let data;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = {
+      message: text || `Server returned status ${response.status}.`,
+    };
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data.message || `Request failed (${response.status}).`
+    );
+  }
+
+  return data;
+}
+
 function App() {
-  const [page, setPage] = useState(() =>
-    localStorage.getItem("trackerToken") ? "dashboard" : "home"
-  );
-
-  const [mode, setMode] = useState("signup");
-
   const [user, setUser] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("trackerUser")) || null;
@@ -29,6 +44,14 @@ function App() {
     () => localStorage.getItem("trackerToken") || ""
   );
 
+  const [page, setPage] = useState(() =>
+    localStorage.getItem("trackerToken") &&
+    localStorage.getItem("trackerUser")
+      ? "dashboard"
+      : "home"
+  );
+
+  const [mode, setMode] = useState("signup");
   const [expenses, setExpenses] = useState([]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -41,7 +64,7 @@ function App() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // Load saved expenses whenever the authenticated user changes.
+  // Load the signed-in user's expenses.
   useEffect(() => {
     if (!token) {
       setExpenses([]);
@@ -58,18 +81,18 @@ function App() {
           },
         });
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || "Could not load expenses.");
-        }
+        const data = await readResponse(response);
 
         if (!cancelled) {
-          setExpenses(data);
+          setExpenses(Array.isArray(data) ? data : []);
+          setError("");
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err.message || "Could not load expenses.");
+          setError(
+            err.message ||
+              "Could not load expenses. Check that the backend is running."
+          );
         }
       }
     }
@@ -98,16 +121,16 @@ function App() {
           },
           body: JSON.stringify(
             mode === "signup"
-              ? { name, email, password }
-              : { email, password }
+              ? { name: name.trim(), email: email.trim(), password }
+              : { email: email.trim(), password }
           ),
         }
       );
 
-      const data = await response.json();
+      const data = await readResponse(response);
 
-      if (!response.ok) {
-        throw new Error(data.message || "Authentication failed.");
+      if (!data.token || !data.user) {
+        throw new Error("The server response is missing account details.");
       }
 
       localStorage.setItem("trackerToken", data.token);
@@ -121,19 +144,29 @@ function App() {
       setMessage(data.message || "Signed in successfully.");
       setError("");
     } catch (err) {
-      setError(err.message || "Could not connect to the server.");
+      setError(
+        err.message ||
+          "Could not connect to the server. Check that Spring Boot is running."
+      );
     } finally {
       setBusy(false);
     }
   }
 
-  // Save a new expense.
+  // Add an expense.
   async function addExpense(event) {
     event.preventDefault();
     setError("");
     setMessage("");
 
-    if (!title.trim() || !date || !category || !amount || Number(amount) <= 0) {
+    if (
+      !title.trim() ||
+      !date ||
+      !category ||
+      !amount ||
+      !Number.isFinite(Number(amount)) ||
+      Number(amount) <= 0
+    ) {
       setError("Please provide a valid title, date, amount and category.");
       return;
     }
@@ -151,37 +184,29 @@ function App() {
           title: title.trim(),
           amount: Number(amount),
           category,
-          date: date,
+          date,
         }),
       });
 
-      const data = await response.json();
+      await readResponse(response);
 
-      if (!response.ok) {
-        throw new Error(data.message || "Could not save expense.");
-      }
-
-      // Reload expenses from the server after saving.
+      // Refresh the list after saving.
       const refreshed = await fetch(`${API}/expenses`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      const items = await refreshed.json();
+      const items = await readResponse(refreshed);
 
-      if (!refreshed.ok) {
-        throw new Error(items.message || "Expense saved, but could not refresh the list.");
-      }
-
-      setExpenses(items);
+      setExpenses(Array.isArray(items) ? items : []);
       setTitle("");
       setAmount("");
       setCategory("Food");
       setDate(today());
       setMessage("Expense saved successfully!");
     } catch (err) {
-      setError(err.message || "Could not connect to the server.");
+      setError(err.message || "Could not save the expense.");
     } finally {
       setBusy(false);
     }
@@ -197,11 +222,12 @@ function App() {
     setExpenses([]);
     setError("");
     setMessage("");
+    setPassword("");
     setPage("home");
   }
 
   const total = expenses.reduce(
-    (sum, expense) => sum + Number(expense.amount),
+    (sum, expense) => sum + Number(expense.amount || 0),
     0
   );
 
@@ -424,10 +450,7 @@ function App() {
               {error && <div className="notice error">{error}</div>}
               {message && <div className="notice success">{message}</div>}
 
-              <button
-                className="btn btn-primary submit-btn"
-                disabled={busy}
-              >
+              <button className="btn btn-primary submit-btn" disabled={busy}>
                 {busy
                   ? "Please wait..."
                   : mode === "signup"
@@ -535,10 +558,7 @@ function App() {
                   />
                 </label>
 
-                <button
-                  className="btn btn-primary submit-btn"
-                  disabled={busy}
-                >
+                <button className="btn btn-primary submit-btn" disabled={busy}>
                   {busy ? "Saving..." : "Save expense"}
                 </button>
               </form>
@@ -580,10 +600,9 @@ function App() {
                           <strong>{expense.title}</strong>
                           <span>
                             {expense.category} ·{" "}
-                            {String(expense.date ?? expense.expense_date).slice(
-                              0,
-                              10
-                            )}
+                            {String(
+                              expense.date ?? expense.expense_date ?? ""
+                            ).slice(0, 10)}
                           </span>
                         </div>
 
