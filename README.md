@@ -1,3 +1,24 @@
+# Student Expense Tracker
+
+**Live Website:** https://student-expense-tracker-frontend.vercel.app
+
+A full-stack Student Expense Tracker built with React and Spring Boot, using a MySQL-compatible TiDB database.
+
+## Features
+- User registration and login
+- Add and track expenses
+- Persistent expense storage
+- Secure password hashing and token-based authentication
+
+## Technologies
+- Frontend: React, Vite
+- Backend: Java, Spring Boot
+- Database: TiDB Cloud (MySQL-compatible)
+- Deployment: Vercel (frontend), Render (backend)
+
+## Repositories
+- Frontend: https://github.com/kpavan0776/student-expense-tracker-frontend
+- Backend: https://github.com/kpavan0776/student-expense-tracker-backend
 # React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
