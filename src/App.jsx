@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import "./App.css";
 
 // Local Spring Boot backend
-const API = "http://localhost:8080/api";
+const API = "https://student-expense-tracker-backend-1-2bgs.onrender.com/api";
 
 function today() {
   const d = new Date();

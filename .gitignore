@@ -22,3 +22,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Accidentally copied JDK
+src/main/resources/oracleJdk-27/
+
+# Root-level duplicate Java file
+/JwtService.java
+
+# Secrets and local environment files
+.env
+.env.*
+!.env.example
